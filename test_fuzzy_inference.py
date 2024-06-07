@@ -1,3 +1,5 @@
+import json
+
 class SistemFuzzy:
     def __init__(self, kelembaban, amoniak):
         self.kelembaban = kelembaban
@@ -14,7 +16,7 @@ class SistemFuzzy:
         if self.kelembaban <= 65:
             self.basah = 0
         elif 65 < self.kelembaban < 85:
-            self.basah = (self.kelembaban-65) / 20
+            self.basah = (self.kelembaban - 65) / 20
         elif self.kelembaban >= 85:
             self.basah = 1
         return self.basah
@@ -34,7 +36,7 @@ class SistemFuzzy:
         if self.kelembaban <= 25:
             self.kering = 1
         elif 25 < self.kelembaban < 45:
-            self.kering = (45-self.kelembaban) / 20
+            self.kering = (45 - self.kelembaban) / 20
         elif self.kelembaban >= 45:
             self.kering = 0
         return self.kering
@@ -43,7 +45,7 @@ class SistemFuzzy:
         if self.amoniak <= 20:
             self.normal = 1
         elif 20 < self.amoniak < 30:
-            self.normal = (30-self.amoniak) / 10
+            self.normal = (30 - self.amoniak) / 10
         elif self.amoniak >= 30:
             self.normal = 0
         return self.normal
@@ -57,8 +59,6 @@ class SistemFuzzy:
             self.sedang = (60 - self.amoniak) / 10
         elif 30 <= self.amoniak <= 50:
             self.sedang = 1
-        else:
-            print("masuk")
         return self.sedang
 
     def amoniak_tinggi(self):
@@ -77,10 +77,21 @@ class SistemFuzzy:
         self.amoniak_normal()
         self.amoniak_sedang()
         self.amoniak_tinggi()
+        
+        fuzzyfikasi_data = {
+            "kering": self.kering,
+            "lembab": self.lembab,
+            "basah": self.basah,
+            "normal": self.normal,
+            "sedang": self.sedang,
+            "tinggi": self.tinggi,
+        }
+        fuzzyfikasi_data = json.dumps(fuzzyfikasi_data, indent=4)
         print(f"basah: {self.basah}\tlembab: {self.lembab}\tkering: {self.kering}")
         print(f"Normal: {self.normal}\tsedang: {self.sedang}\tTinggi: {self.tinggi}")
+        return fuzzyfikasi_data
 
-    def defuzzifikasi(self):
+    def inference(self):
         if self.normal >= 0.5 and self.kering >= 0.5:
             self.hasil = "AMAN"
         elif self.normal >= 0.5 and self.lembab >= 0.5:
@@ -101,9 +112,41 @@ class SistemFuzzy:
             self.hasil = "BAHAYA"
         else:
             self.hasil = "TIDAK TERDEFINISI"
-        print(f"HASIL: {self.hasil}")
+        status = {
+            "STATUS": self.hasil
+        }
+        
+        status_json = json.dumps(status, indent=4)
+        print(f"HASIL: {status_json}")
+        return status_json
 
-# Contoh penggunaan
-sistem_fuzzy = SistemFuzzy(kelembaban=0, amoniak=50)  # Atur beberapa nilai tes
-sistem_fuzzy.fuzzifikasi()
-sistem_fuzzy.defuzzifikasi()
+    def defuzzyfikasi(self):
+        # Define the centroids of the output sets
+        output_values = {
+            "AMAN": 25,
+            "WASPADA": 50,
+            "BAHAYA": 75,
+            "TIDAK TERDEFINISI": 0
+        }
+
+        # Get the inferred status
+        status = self.inference()
+        print
+        status_dict = json.loads(status)
+        inferred_status = status_dict["STATUS"]
+
+        # Perform defuzzification using the centroid method
+        crisp_value = output_values.get(inferred_status, 0)
+
+        defuzzyfikasi_data = {
+            "crisp_value": crisp_value
+        }
+        defuzzyfikasi_json = json.dumps(defuzzyfikasi_data, indent=4)
+        print(f"Defuzzifikasi crisp value: {crisp_value}")
+        return defuzzyfikasi_json
+
+# Example usage:
+sistem = SistemFuzzy(kelembaban=70, amoniak=0)
+sistem.fuzzifikasi()
+sistem.inference()
+sistem.defuzzyfikasi()

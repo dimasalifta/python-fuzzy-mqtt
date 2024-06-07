@@ -101,7 +101,7 @@ class SistemFuzzy:
         # print(f"basah: {self.basah}\tlembab: {self.lembab}\tkering: {self.kering}")
         # print(f"Normal: {self.normal}\tsedang: {self.sedang}\tTinggi: {self.tinggi}")
         return fuzzyfikasi_data
-    def defuzzifikasi(self):
+    def inference(self):
         if self.normal >= 0.5 and self.kering >= 0.5:
             self.hasil = "AMAN"
         elif self.normal >= 0.5 and self.lembab >= 0.5:
@@ -122,9 +122,29 @@ class SistemFuzzy:
             self.hasil = "BAHAYA"
         else:
             self.hasil = "TIDAK TERDEFINISI"
-        return self.hasil
-        print(f"HASIL: {self.hasil}")
+        status = {
+            "STATUS":self.hasil
+        }
         
+        status_json = json.dumps(status, indent=4)
+        return status_json
+        # print(f"HASIL: {status_json}")
+    def defuzzifikasi(self):
+        centroid_kering = 10  # Centroid untuk himpunan kering (berdasarkan kelembaban)
+        centroid_lembab = 55  # Centroid untuk himpunan lembab (berdasarkan kelembaban)
+        centroid_basah = 92.5  # Centroid untuk himpunan basah (berdasarkan kelembaban)
+
+        centroid_normal = 10  # Centroid untuk himpunan normal (berdasarkan amoniak)
+        centroid_sedang = 35  # Centroid untuk himpunan sedang (berdasarkan amoniak)
+        centroid_tinggi = 75  # Centroid untuk himpunan tinggi (berdasarkan amoniak)
+        # print(self.basah + self.lembab + self.kering)
+        # Hitung nilai crisp dengan metode centroid
+        nilai_crisp_kelembaban = (self.basah * centroid_basah + self.lembab * centroid_lembab + self.kering * centroid_kering) / (
+                    self.basah + self.lembab + self.kering)
+        nilai_crisp_amoniak = (self.normal * centroid_normal + self.sedang * centroid_sedang + self.tinggi * centroid_tinggi) / (
+                    self.normal + self.sedang + self.tinggi)
+
+        return nilai_crisp_kelembaban,nilai_crisp_amoniak   
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
         print("Connected to broker")
@@ -135,9 +155,10 @@ def on_connect(client, userdata, flags, rc):
         
 # Fungsi yang dipanggil ketika pesan diterima
 def on_message(client, userdata, msg):
-    print("Received message on topic:", msg.topic)
+    # print("Received message on topic:", msg.topic)
     try:
-        print("Received JSON payload:")
+        
+        # print("Received JSON payload:")
         payload = msg.payload.decode()
         print(payload)
         data = json.loads(payload)
@@ -149,8 +170,12 @@ def on_message(client, userdata, msg):
         client.publish('ais/humidity',humidity)
         client.publish('ais/ammonia',ammonia)
         sistem_fuzzy = SistemFuzzy(kelembaban=humidity, amoniak=ammonia)  # Atur beberapa nilai tes
+        
         client.publish("ais/fuzzyfication",sistem_fuzzy.fuzzifikasi())
-        client.publish("ais/defuzzyfication",sistem_fuzzy.defuzzifikasi())
+        client.publish("ais/inference",sistem_fuzzy.inference())
+        nilai_crisp_kelembaban,nilai_crisp_amoniak = sistem_fuzzy.defuzzifikasi()
+        client.publish("ais/defuzzyfication/kelembaban",nilai_crisp_kelembaban)
+        client.publish("ais/defuzzyfication/ammonia",nilai_crisp_amoniak)
     except Exception as e:
         # Jika payload tidak bisa diuraikan sebagai JSON, cetak sebagai string biasa
         print(f"Received String Payload: {e}", msg.payload)
